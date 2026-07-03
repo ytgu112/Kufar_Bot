@@ -1,0 +1,20 @@
+[Unit]
+Description=Kufar Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kufar-bot
+Group=kufar-bot
+WorkingDirectory=/opt/kufar_bot
+EnvironmentFile=/opt/kufar_bot/.env
+ExecStart=/opt/kufar_bot/.venv/bin/python /opt/kufar_bot/main.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/kufar-bot/bot.log
+StandardError=append:/var/log/kufar-bot/bot.log
+
+[Install]
+WantedBy=multi-user.target
+
