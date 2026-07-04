@@ -475,11 +475,24 @@ function buildPayload() {
 }
 
 async function apiFetch(path, options = {}) {
+  // Check if running in Telegram WebApp context
+  if (!tg) {
+    const error = new Error("Миниапп должен открываться из Telegram. Откройте ссылку на миниапп из Telegram бота.");
+    error.status = 401;
+    throw error;
+  }
+
+  // Check if initData is available
+  if (!tg.initData) {
+    const error = new Error("Ошибка аутентификации Telegram. Переоткройте миниапп.");
+    error.status = 401;
+    throw error;
+  }
+
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
-  if (tg?.initData) {
-    headers.set("Authorization", `tma ${tg.initData}`);
-  }
+  headers.set("Authorization", `tma ${tg.initData}`);
+
   const response = await fetch(path, {
     ...options,
     headers,
@@ -524,7 +537,20 @@ async function loadData() {
     state.error = error;
     renderHome();
     syncControls();
-    showBanner(error.body?.error || "Не удалось загрузить данные", "error");
+    
+    // Log error for debugging
+    console.error("Failed to load data:", {
+      message: error.message,
+      status: error.status,
+      tgAvailable: !!tg,
+      initDataAvailable: tg?.initData ? "yes" : "no",
+    });
+    
+    let userMessage = error.message || "Не удалось загрузить данные";
+    if (error.status === 401) {
+      userMessage = "Ошибка аутентификации. Переоткройте миниапп из Telegram.";
+    }
+    showBanner(error.body?.error || userMessage, "error");
   }
 }
 
@@ -965,8 +991,29 @@ function init() {
   window.addEventListener("orientationchange", syncViewport);
   state.form = createEmptyForm();
   setScreen("home");
-  loadData();
-  syncControls();
+  
+  // Wait for Telegram to be ready before loading data
+  if (tg && tg.initData) {
+    loadData();
+  } else if (tg) {
+    // Telegram is available but initData not ready yet, wait a bit
+    setTimeout(() => {
+      if (tg.initData) {
+        loadData();
+      } else {
+        showBanner("Ошибка аутентификации. Переоткройте миниапп из Telegram.", "error");
+        state.error = { message: "initData не установлен" };
+        renderHome();
+        syncControls();
+      }
+    }, 500);
+  } else {
+    // Not in Telegram environment
+    showBanner("Миниапп должен открываться из Telegram.", "error");
+    state.error = { message: "Не в контексте Telegram" };
+    renderHome();
+    syncControls();
+  }
 }
 
 init();
