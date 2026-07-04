@@ -389,26 +389,25 @@ function openCreateForm() {
 }
 
 function openEditForm(item) {
-  const query = item.query_params || {};
-  const category = query.category || getCategoryOptions()[0]?.key || "";
+  // Use direct fields from item, not query_params (which is for Kufar API)
+  const category = item.category || getCategoryOptions()[0]?.key || "";
   const dealTypes = getDealTypeOptions(category);
-  const normalizedRooms = Array.isArray(query.rooms)
-    ? query.rooms
-    : query.rooms
-      ? [query.rooms]
+  const normalizedRooms = Array.isArray(item.rooms)
+    ? item.rooms
+    : item.rooms
+      ? [item.rooms]
       : [];
 
-  // Convert price from cents to display value (or use raw value if already a number)
-  const priceFrom = query.price_from != null ? String(query.price_from) : "";
-  const priceTo = query.price_to != null ? String(query.price_to) : "";
+  const priceFrom = item.price_from != null ? String(item.price_from) : "";
+  const priceTo = item.price_to != null ? String(item.price_to) : "";
 
   applyFormPayload(
     {
       category,
-      deal_type: dealTypes.some((option) => option.key === query.deal_type)
-        ? query.deal_type
+      deal_type: dealTypes.some((option) => option.key === item.deal_type)
+        ? item.deal_type
         : dealTypes[0]?.key || "",
-      city: query.city || "",  // Store key, not label
+      city: item.city || "",
       rooms: normalizedRooms,
       price_from: priceFrom,
       price_to: priceTo,
