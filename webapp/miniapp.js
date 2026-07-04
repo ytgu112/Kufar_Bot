@@ -18,6 +18,7 @@ const state = {
 const refs = {
   pageSubtitle: document.getElementById("pageSubtitle"),
   statusBanner: document.getElementById("statusBanner"),
+  formSection: document.getElementById("formSection"),
   loadingState: document.getElementById("loadingState"),
   errorState: document.getElementById("errorState"),
   errorText: document.getElementById("errorText"),
