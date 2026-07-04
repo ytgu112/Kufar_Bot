@@ -714,16 +714,6 @@ function attachCardHandlers() {
     if (!item) {
       return;
     }
-    card.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      const action = target.dataset.action;
-      if (!action) {
-        openEditForm(item);
-      }
-    });
     card.querySelector('[data-action="edit"]')?.addEventListener("click", (event) => {
       event.stopPropagation();
       openEditForm(item);
