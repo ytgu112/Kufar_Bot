@@ -47,6 +47,8 @@ const ui = {
   mainButtonHandler: null,
 };
 
+let _loading = false;
+
 function createEmptyForm() {
   return {
     category: "",
@@ -546,15 +548,14 @@ async function apiFetch(path, options = {}) {
 }
 
 async function loadData() {
-  const hasExistingItems = state.items.length > 0;
+  if (_loading) {
+    return;
+  }
+  _loading = true;
+  state.error = null;
 
-  if (!hasExistingItems) {
+  if (state.items.length === 0) {
     state.loading = true;
-    state.error = null;
-    renderHome();
-    syncControls();
-  } else {
-    state.error = null;
     renderHome();
     syncControls();
   }
@@ -567,11 +568,13 @@ async function loadData() {
     state.meta = metaResponse.meta;
     state.items = filtersResponse.items || [];
     state.loading = false;
+    _loading = false;
     renderMeta();
     renderHome();
     syncControls();
   } catch (error) {
     state.loading = false;
+    _loading = false;
     state.error = error;
     renderHome();
     syncControls();
