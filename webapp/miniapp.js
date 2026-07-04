@@ -97,7 +97,11 @@ function translatePrice(value) {
 }
 
 function getMeta() {
-  return state.meta ?? { categories: [], cities: [], rooms: [] };
+  const m = state.meta;
+  if (!m || typeof m !== "object" || !Array.isArray(m.cities) || !Array.isArray(m.categories) || !Array.isArray(m.rooms)) {
+    return { categories: [], cities: [], rooms: [] };
+  }
+  return m;
 }
 
 function getCategoryOptions() {
@@ -220,7 +224,9 @@ function syncViewport() {
 
 function showForm() {
   state.showForm = true;
-  refs.formSection.classList.add("is-visible");
+  if (refs.formSection) {
+    refs.formSection.classList.add("is-visible");
+  }
   refs.pageSubtitle.textContent = state.formMode === "edit" ? "Редактирование фильтра" : "Создание нового фильтра";
   if (state.meta) {
     renderMeta();
@@ -232,7 +238,9 @@ function showForm() {
 
 function hideForm() {
   state.showForm = false;
-  refs.formSection.classList.remove("is-visible");
+  if (refs.formSection) {
+    refs.formSection.classList.remove("is-visible");
+  }
   refs.pageSubtitle.textContent = "Управление фильтрами поиска";
   renderHome();
   syncControls();
@@ -568,34 +576,41 @@ async function loadData() {
 
 function renderMeta() {
   const meta = getMeta();
+  if (!refs.categoryChips || !refs.dealTypeChips || !refs.roomChips || !refs.cityOptions) {
+    return;
+  }
   refs.categoryChips.innerHTML = "";
   refs.dealTypeChips.innerHTML = "";
   refs.roomChips.innerHTML = "";
   refs.cityOptions.innerHTML = "";
 
-  meta.cities.forEach((city) => {
-    const option = document.createElement("option");
-    option.value = city.label;
-    refs.cityOptions.appendChild(option);
-  });
-
-  meta.categories.forEach((category) => {
-    const chip = createChip(category.label, state.form.category === category.key, () => {
-      state.form.category = category.key;
-      const options = getDealTypeOptions(category.key);
-      if (!options.some((item) => item.key === state.form.deal_type)) {
-        state.form.deal_type = options[0]?.key || "";
-      }
-      setDirty(true);
-      state.formErrors = {};
-      state.formError = "";
-      renderMeta();
-      renderForm();
-      syncControls();
-      haptic("impact", "light");
+  if (Array.isArray(meta.cities)) {
+    meta.cities.forEach((city) => {
+      const option = document.createElement("option");
+      option.value = city.label;
+      refs.cityOptions.appendChild(option);
     });
-    refs.categoryChips.appendChild(chip);
-  });
+  }
+
+  if (Array.isArray(meta.categories)) {
+    meta.categories.forEach((category) => {
+      const chip = createChip(category.label, state.form.category === category.key, () => {
+        state.form.category = category.key;
+        const options = getDealTypeOptions(category.key);
+        if (!options.some((item) => item.key === state.form.deal_type)) {
+          state.form.deal_type = options[0]?.key || "";
+        }
+        setDirty(true);
+        state.formErrors = {};
+        state.formError = "";
+        renderMeta();
+        renderForm();
+        syncControls();
+        haptic("impact", "light");
+      });
+      refs.categoryChips.appendChild(chip);
+    });
+  }
 
   getDealTypeOptions(getSelectedCategory()).forEach((dealType) => {
     const chip = createChip(dealType.label, state.form.deal_type === dealType.key, () => {
@@ -737,6 +752,9 @@ function attachCardHandlers() {
 
 function renderForm() {
   if (!state.meta) {
+    return;
+  }
+  if (!refs.cityInput || !refs.priceFromInput || !refs.priceToInput || !refs.formSummary || !refs.formError) {
     return;
   }
 
