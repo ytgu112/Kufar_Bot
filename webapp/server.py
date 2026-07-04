@@ -401,94 +401,73 @@ class MiniAppServer:
                         raise ValidationError({"subscription": "Фильтр не найден"})
                     return subscription
 
-            def _clear_input_buffer(self) -> None:
-                """Clear any remaining data in the input buffer to prevent corruption."""
-                try:
-                    content_length = int(self.headers.get("Content-Length", "0") or "0")
-                    if content_length > 0:
-                        self.rfile.read(content_length)
-                except Exception:
-                    pass
-
             def do_GET(self) -> None:  # noqa: N802
-                try:
-                    parsed = urlparse(self.path)
-                    if parsed.path in {"/", "/miniapp"}:
+                parsed = urlparse(self.path)
+                if parsed.path in {"/", "/miniapp"}:
+                    file_name = "miniapp.html"
+                    if parsed.path == "/":
                         file_name = "miniapp.html"
-                        if parsed.path == "/":
-                            file_name = "miniapp.html"
-                        self._serve_static(file_name)
-                        return
-                    if parsed.path == "/miniapp.css":
-                        self._serve_static("miniapp.css", "text/css; charset=utf-8")
-                        return
-                    if parsed.path == "/miniapp.js":
-                        self._serve_static("miniapp.js", "application/javascript; charset=utf-8")
-                        return
-                    if parsed.path == "/api/meta":
-                        try:
-                            self._read_auth()
-                            self._send_json(HTTPStatus.OK, {"meta": _serialize_meta()})
-                        except AuthError as exc:
-                            self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
-                        except Exception as exc:
-                            logger.exception("Error loading meta")
-                            self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке данных")
-                        return
-                    if parsed.path == "/api/filters":
-                        try:
-                            auth = self._read_auth()
-                            with service.session_factory() as session:
-                                subscriptions = crud.get_user_subscriptions(session, auth["telegram_id"])
-                            self._send_json(
-                                HTTPStatus.OK,
-                                {
-                                    "items": [_serialize_subscription(subscription) for subscription in subscriptions],
-                                },
-                            )
-                        except AuthError as exc:
-                            self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
-                        except Exception as exc:
-                            logger.exception("Error loading subscriptions")
-                            self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке фильтров")
-                        return
+                    self._serve_static(file_name)
+                    return
+                if parsed.path == "/miniapp.css":
+                    self._serve_static("miniapp.css", "text/css; charset=utf-8")
+                    return
+                if parsed.path == "/miniapp.js":
+                    self._serve_static("miniapp.js", "application/javascript; charset=utf-8")
+                    return
+                if parsed.path == "/api/meta":
+                    try:
+                        self._read_auth()
+                        self._send_json(HTTPStatus.OK, {"meta": _serialize_meta()})
+                    except AuthError as exc:
+                        self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
+                    except Exception as exc:
+                        logger.exception("Error loading meta")
+                        self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке данных")
+                    return
+                if parsed.path == "/api/filters":
+                    try:
+                        auth = self._read_auth()
+                        with service.session_factory() as session:
+                            subscriptions = crud.get_user_subscriptions(session, auth["telegram_id"])
+                        self._send_json(
+                            HTTPStatus.OK,
+                            {
+                                "items": [_serialize_subscription(subscription) for subscription in subscriptions],
+                            },
+                        )
+                    except AuthError as exc:
+                        self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
+                    except Exception as exc:
+                        logger.exception("Error loading subscriptions")
+                        self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке фильтров")
+                    return
 
-                    self._send_error(HTTPStatus.NOT_FOUND, "Not found")
-                finally:
-                    self._clear_input_buffer()
+                self._send_error(HTTPStatus.NOT_FOUND, "Not found")
 
             def do_POST(self) -> None:  # noqa: N802
-                try:
-                    parsed = urlparse(self.path)
-                    if parsed.path == "/api/filters":
-                        self._handle_create_filter()
-                        return
-                    self._send_error(HTTPStatus.NOT_FOUND, "Not found")
-                finally:
-                    self._clear_input_buffer()
+                parsed = urlparse(self.path)
+                if parsed.path == "/api/filters":
+                    self._handle_create_filter()
+                    return
+                self._send_error(HTTPStatus.NOT_FOUND, "Not found")
 
             def do_PATCH(self) -> None:  # noqa: N802
-                try:
-                    parsed = urlparse(self.path)
-                    if parsed.path.startswith("/api/filters/") and parsed.path.endswith("/toggle"):
-                        self._handle_toggle_filter(parsed.path)
-                        return
-                    if parsed.path.startswith("/api/filters/"):
-                        self._handle_update_filter(parsed.path)
-                        return
-                    self._send_error(HTTPStatus.NOT_FOUND, "Not found")
-                finally:
-                    self._clear_input_buffer()
+                parsed = urlparse(self.path)
+                if parsed.path.startswith("/api/filters/") and parsed.path.endswith("/toggle"):
+                    self._handle_toggle_filter(parsed.path)
+                    return
+                if parsed.path.startswith("/api/filters/"):
+                    self._handle_update_filter(parsed.path)
+                    return
+                self._send_error(HTTPStatus.NOT_FOUND, "Not found")
 
             def do_DELETE(self) -> None:  # noqa: N802
-                try:
-                    parsed = urlparse(self.path)
-                    if parsed.path.startswith("/api/filters/"):
-                        self._handle_delete_filter(parsed.path)
-                        return
-                    self._send_error(HTTPStatus.NOT_FOUND, "Not found")
-                finally:
-                    self._clear_input_buffer()
+                parsed = urlparse(self.path)
+                if parsed.path.startswith("/api/filters/"):
+                    self._handle_delete_filter(parsed.path)
+                    return
+                self._send_error(HTTPStatus.NOT_FOUND, "Not found")
 
             def _serve_static(self, file_name: str, content_type: str = "text/html; charset=utf-8") -> None:
                 target = static_dir / file_name
@@ -543,8 +522,6 @@ class MiniAppServer:
                 except Exception as exc:
                     logger.exception("Error creating filter")
                     self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при создании фильтра")
-                finally:
-                    self._clear_input_buffer()
 
             def _handle_update_filter(self, path: str) -> None:
                 try:
@@ -600,8 +577,6 @@ class MiniAppServer:
                 except Exception as exc:
                     logger.exception("Error updating filter")
                     self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении фильтра")
-                finally:
-                    self._clear_input_buffer()
 
             def _handle_toggle_filter(self, path: str) -> None:
                 try:
@@ -628,8 +603,6 @@ class MiniAppServer:
                 except Exception as exc:
                     logger.exception("Error toggling filter")
                     self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при изменении статуса фильтра")
-                finally:
-                    self._clear_input_buffer()
 
             def _handle_delete_filter(self, path: str) -> None:
                 try:
@@ -651,7 +624,5 @@ class MiniAppServer:
                 except Exception as exc:
                     logger.exception("Error deleting filter")
                     self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении фильтра")
-                finally:
-                    self._clear_input_buffer()
 
         return ThreadingHTTPServer((self.host, self.port), Handler)

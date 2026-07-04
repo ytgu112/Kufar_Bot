@@ -426,6 +426,11 @@ button {
   transform: none;
 }
 
+.form-section {
+  animation: fadeUp 180ms ease;
+  margin-bottom: 4px;
+}
+
 .status-banner {
   padding: 14px 16px;
   border-radius: 18px;

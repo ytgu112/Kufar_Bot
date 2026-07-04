@@ -5,7 +5,7 @@ const state = {
   error: null,
   meta: null,
   items: [],
-  screen: "home",
+  showForm: false,
   formMode: "create",
   editingId: null,
   form: createEmptyForm(),
@@ -16,11 +16,8 @@ const state = {
 };
 
 const refs = {
-  app: document.getElementById("app"),
   pageSubtitle: document.getElementById("pageSubtitle"),
   statusBanner: document.getElementById("statusBanner"),
-  homeScreen: document.getElementById("homeScreen"),
-  formScreen: document.getElementById("formScreen"),
   loadingState: document.getElementById("loadingState"),
   errorState: document.getElementById("errorState"),
   errorText: document.getElementById("errorText"),
@@ -46,7 +43,6 @@ const refs = {
 const ui = {
   mainButtonReady: false,
   mainButtonHandler: null,
-  backButtonHandler: null,
 };
 
 function createEmptyForm() {
@@ -221,20 +217,24 @@ function syncViewport() {
   }
 }
 
-function setScreen(screen) {
-  state.screen = screen;
-  refs.app.dataset.screen = screen;
-  refs.homeScreen.hidden = screen !== "home";
-  refs.formScreen.hidden = screen !== "form";
-  refs.pageSubtitle.textContent = screen === "form"
-    ? (state.formMode === "edit" ? "Редактирование фильтра" : "Создание нового фильтра")
-    : "Управление фильтрами поиска";
-  syncControls();
-  if (screen === "form" && state.meta) {
+function showForm() {
+  state.showForm = true;
+  refs.formSection.hidden = false;
+  refs.pageSubtitle.textContent = state.formMode === "edit" ? "Редактирование фильтра" : "Создание нового фильтра";
+  if (state.meta) {
     renderMeta();
   }
   renderForm();
   renderHome();
+  syncControls();
+}
+
+function hideForm() {
+  state.showForm = false;
+  refs.formSection.hidden = true;
+  refs.pageSubtitle.textContent = "Управление фильтрами поиска";
+  renderHome();
+  syncControls();
 }
 
 function setDirty(value) {
@@ -271,7 +271,7 @@ function haptic(type, impact = "light") {
 }
 
 function createMainButtonAction() {
-  if (state.screen === "form") {
+  if (state.showForm) {
     return submitForm;
   }
   return openCreateForm;
@@ -293,10 +293,10 @@ function syncControls() {
   refs.fallbackAction.hidden = shouldUseTelegram;
 
   if (!shouldUseTelegram) {
-    refs.fallbackAction.textContent = state.screen === "form"
+    refs.fallbackAction.textContent = state.showForm
       ? (state.formMode === "edit" ? "Сохранить изменения" : "Сохранить фильтр")
       : "Создать фильтр";
-    refs.fallbackAction.disabled = state.screen === "form" && (state.submitting || !isFormValid(false));
+    refs.fallbackAction.disabled = state.showForm && (state.submitting || !isFormValid(false));
   }
 
   if (!tg?.MainButton) {
@@ -305,12 +305,10 @@ function syncControls() {
 
   if (state.loading) {
     tg.MainButton.hide?.();
-    tg.BackButton.hide?.();
     return;
   }
 
-  if (state.screen === "form") {
-    tg.BackButton.show?.();
+  if (state.showForm) {
     setMainButtonText(state.formMode === "edit" ? "Сохранить изменения" : "Сохранить фильтр");
     if (state.submitting) {
       tg.MainButton.showProgress?.();
@@ -327,7 +325,6 @@ function syncControls() {
     return;
   }
 
-  tg.BackButton.hide?.();
   tg.MainButton.hideProgress?.();
   setMainButtonText("Создать фильтр");
   tg.MainButton.enable?.();
@@ -372,7 +369,7 @@ function applyFormPayload(form, mode, editingId = null) {
   setDirty(false);
   state.formErrors = {};
   state.formError = "";
-  setScreen("form");
+  showForm();
 }
 
 function openCreateForm() {
@@ -811,7 +808,7 @@ async function submitForm() {
     if (response?.item) {
       state.items = state.items.map((item) => (item.id === response.item.id ? response.item : item));
     }
-    setScreen("home");
+    hideForm();
   } catch (error) {
     state.submitting = false;
     const fields = error.body?.fields || {};
@@ -867,40 +864,6 @@ async function deleteFilter(id) {
   }
 }
 
-function resetFormState() {
-  state.formMode = "create";
-  state.editingId = null;
-  state.form = createEmptyForm();
-  state.formErrors = {};
-  state.formError = "";
-  setDirty(false);
-}
-
-function handleBack() {
-  if (state.screen !== "form") {
-    return;
-  }
-  if (state.dirty) {
-    const confirmed = tg?.showConfirm
-      ? null
-      : window.confirm("Есть несохранённые изменения. Закрыть форму?");
-    if (confirmed === false) {
-      return;
-    }
-    if (confirmed === null && tg?.showConfirm) {
-      tg.showConfirm("Есть несохранённые изменения. Закрыть форму?", (result) => {
-        if (result) {
-          resetFormState();
-          setScreen("home");
-        }
-      });
-      return;
-    }
-  }
-  resetFormState();
-  setScreen("home");
-}
-
 function onFormInput(event) {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) {
@@ -950,7 +913,7 @@ function initTelegram() {
 
 function initFallbackControls() {
   refs.fallbackAction.addEventListener("click", () => {
-    if (state.screen === "form") {
+    if (state.showForm) {
       submitForm();
       return;
     }
@@ -985,11 +948,6 @@ function initButtons() {
       ui.mainButtonReady = true;
     }
   }
-
-  if (tg?.BackButton?.onClick && !ui.backButtonHandler) {
-    ui.backButtonHandler = handleBack;
-    tg.BackButton.onClick(handleBack);
-  }
 }
 
 function init() {
@@ -1002,7 +960,7 @@ function init() {
   window.addEventListener("resize", syncViewport);
   window.addEventListener("orientationchange", syncViewport);
   state.form = createEmptyForm();
-  setScreen("home");
+  hideForm();
   
   // Wait for Telegram to be ready before loading data
   if (tg && tg.initData) {
