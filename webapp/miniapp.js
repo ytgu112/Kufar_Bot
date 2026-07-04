@@ -39,6 +39,7 @@ const refs = {
   priceToInput: document.getElementById("priceToInput"),
   formSummary: document.getElementById("formSummary"),
   formError: document.getElementById("formError"),
+  formBackButton: document.getElementById("formBackButton"),
 };
 
 const ui = {
@@ -227,13 +228,19 @@ function showForm() {
   if (refs.formSection) {
     refs.formSection.classList.add("is-visible");
   }
+  refs.loadingState.hidden = true;
+  refs.errorState.hidden = true;
+  refs.emptyState.hidden = true;
+  refs.filtersList.hidden = true;
   refs.pageSubtitle.textContent = state.formMode === "edit" ? "Редактирование фильтра" : "Создание нового фильтра";
   if (state.meta) {
     renderMeta();
   }
   renderForm();
-  renderHome();
   syncControls();
+  if (tg?.BackButton?.show) {
+    tg.BackButton.show();
+  }
 }
 
 function hideForm() {
@@ -244,6 +251,9 @@ function hideForm() {
   refs.pageSubtitle.textContent = "Управление фильтрами поиска";
   renderHome();
   syncControls();
+  if (tg?.BackButton?.hide) {
+    tg.BackButton.hide();
+  }
 }
 
 function setDirty(value) {
@@ -928,6 +938,7 @@ function initTelegram() {
   tg.enableClosingConfirmation?.(false);
   tg.onEvent?.("themeChanged", setTheme);
   tg.onEvent?.("viewportChanged", syncViewport);
+  tg.onEvent?.("backButtonClicked", hideForm);
 }
 
 function initFallbackControls() {
@@ -948,6 +959,7 @@ function initFormEvents() {
     renderForm();
     syncControls();
   });
+  refs.formBackButton?.addEventListener("click", hideForm);
 }
 
 function initButtons() {

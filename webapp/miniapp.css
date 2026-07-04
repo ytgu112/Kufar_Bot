@@ -435,6 +435,23 @@ button {
   animation: fadeUp 180ms ease;
 }
 
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0 12px;
+  background: none;
+  border: none;
+  color: var(--app-accent);
+  font: inherit;
+  font-size: 0.95em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.back-button:hover {
+  opacity: 0.8;
+}
+
 .status-banner {
   padding: 14px 16px;
   border-radius: 18px;
