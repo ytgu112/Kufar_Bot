@@ -36,19 +36,26 @@ def _money_from_cents(raw_value: Any) -> str | None:
 
 
 def _format_price(ad: dict[str, Any]) -> str:
-    currency = str(ad.get("currency") or "USD").upper()
-    price_key = "price_usd" if currency == "USD" else "price_byn" if currency == "BYN" else None
+    # Try direct price fields first (in order of preference)
+    for price_field in ("price_usd", "price_byn", "price"):
+        raw_price = ad.get(price_field)
+        if raw_price not in (None, "", 0):
+            price = _money_from_cents(raw_price)
+            if price:
+                currency = str(ad.get("currency") or "USD").upper()
+                return f"{price} {currency}"
 
-    price = _money_from_cents(ad.get(price_key)) if price_key else None
-    if price is None:
-        calculator = ad.get("calculator")
-        if isinstance(calculator, list):
-            for item in calculator:
-                if isinstance(item, dict) and str(item.get("currency", "")).upper() == currency:
-                    price = _money_from_cents(item.get("price"))
-                    break
+    # Fallback to calculator array
+    calculator = ad.get("calculator")
+    if isinstance(calculator, list):
+        for item in calculator:
+            if isinstance(item, dict):
+                price = _money_from_cents(item.get("price"))
+                if price:
+                    currency = str(item.get("currency") or "USD").upper()
+                    return f"{price} {currency}"
 
-    return f"{price} {currency}" if price else "Цена не указана"
+    return "Цена не указана"
 
 
 _TZ_MINSK = timezone(timedelta(hours=3))
@@ -101,8 +108,29 @@ async def _send_ad(bot: Bot, telegram_id: int, ad: dict[str, Any]) -> bool:
     caption = _caption(ad)
     reply_markup = _ad_keyboard(ad)
 
+    # Robust image extraction with fallbacks
     images = ad.get("images")
-    image_url = build_image_url(images[0]) if isinstance(images, list) and images else None
+    image_url = None
+
+    # Try primary images field (list)
+    if isinstance(images, list) and len(images) > 0:
+        image_url = build_image_url(images[0])
+
+    # Fallback: try if images is a single dict
+    if not image_url and isinstance(images, dict):
+        image_url = build_image_url(images)
+
+    # Fallback: try alternative image fields
+    if not image_url:
+        for img_field in ("primary_image", "thumbnail", "cover_photo"):
+            img_data = ad.get(img_field)
+            if img_data:
+                if isinstance(img_data, dict):
+                    image_url = build_image_url(img_data)
+                else:
+                    image_url = build_image_url({"path": img_data})
+                if image_url:
+                    break
 
     try:
         if image_url:
