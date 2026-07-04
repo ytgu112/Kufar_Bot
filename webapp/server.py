@@ -410,6 +410,9 @@ class MiniAppServer:
                         self._send_json(HTTPStatus.OK, {"meta": _serialize_meta()})
                     except AuthError as exc:
                         self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
+                    except Exception as exc:
+                        logger.exception("Error loading meta")
+                        self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке данных")
                     return
                 if parsed.path == "/api/filters":
                     try:
@@ -424,6 +427,9 @@ class MiniAppServer:
                         )
                     except AuthError as exc:
                         self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
+                    except Exception as exc:
+                        logger.exception("Error loading subscriptions")
+                        self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке фильтров")
                     return
 
                 self._send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -496,6 +502,9 @@ class MiniAppServer:
                     self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
                 except ValidationError as exc:
                     self._send_error(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc), exc.fields)
+                except Exception as exc:
+                    logger.exception("Error creating filter")
+                    self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при создании фильтра")
 
             def _handle_update_filter(self, path: str) -> None:
                 try:
@@ -541,6 +550,9 @@ class MiniAppServer:
                     self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
                 except ValidationError as exc:
                     self._send_error(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc), exc.fields)
+                except Exception as exc:
+                    logger.exception("Error updating filter")
+                    self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при обновлении фильтра")
 
             def _handle_toggle_filter(self, path: str) -> None:
                 try:
@@ -564,6 +576,9 @@ class MiniAppServer:
                     self._send_error(HTTPStatus.NOT_FOUND, "Фильтр не найден")
                 except AuthError as exc:
                     self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
+                except Exception as exc:
+                    logger.exception("Error toggling filter")
+                    self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при изменении статуса фильтра")
 
             def _handle_delete_filter(self, path: str) -> None:
                 try:
@@ -582,5 +597,8 @@ class MiniAppServer:
                     self._send_error(HTTPStatus.NOT_FOUND, "Фильтр не найден")
                 except AuthError as exc:
                     self._send_error(HTTPStatus.UNAUTHORIZED, str(exc))
+                except Exception as exc:
+                    logger.exception("Error deleting filter")
+                    self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при удалении фильтра")
 
         return ThreadingHTTPServer((self.host, self.port), Handler)
