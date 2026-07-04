@@ -398,16 +398,20 @@ function openEditForm(item) {
       ? [query.rooms]
       : [];
 
+  // Convert price from cents to display value (or use raw value if already a number)
+  const priceFrom = query.price_from != null ? String(query.price_from) : "";
+  const priceTo = query.price_to != null ? String(query.price_to) : "";
+
   applyFormPayload(
     {
       category,
       deal_type: dealTypes.some((option) => option.key === query.deal_type)
         ? query.deal_type
         : dealTypes[0]?.key || "",
-      city: getCityLabel(query.city),
+      city: query.city || "",  // Store key, not label
       rooms: normalizedRooms,
-      price_from: query.price_from ?? "",
-      price_to: query.price_to ?? "",
+      price_from: priceFrom,
+      price_to: priceTo,
     },
     "edit",
     item.id,
