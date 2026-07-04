@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.models import Base
@@ -20,11 +20,21 @@ def _sqlite_url(db_path: str) -> str:
 
 
 def create_engine_for_db(db_path: str) -> Engine:
-    return create_engine(
+    engine = create_engine(
         _sqlite_url(db_path),
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 10},
         future=True,
     )
+
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=10000")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    return engine
 
 
 def create_session_factory(db_path: str) -> sessionmaker[Session]:

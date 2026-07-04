@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 from sqlalchemy.orm import Session, sessionmaker
+
+from db import crud
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +20,14 @@ def _miniapp_keyboard(webapp_url: str) -> InlineKeyboardMarkup:
     )
 
 
-async def _set_bot_commands(bot) -> None:
-    await bot.set_my_commands([
-        BotCommand(command="miniapp", description="Открыть приложение"),
-        BotCommand(command="help", description="Как использовать бота"),
-    ])
+async def _set_bot_commands(bot: Bot) -> None:
+    try:
+        await bot.set_my_commands([
+            BotCommand(command="miniapp", description="Открыть приложение"),
+            BotCommand(command="help", description="Как использовать бота"),
+        ])
+    except Exception:
+        logger.warning("Failed to set bot commands", exc_info=True)
 
 
 def build_router(session_factory: sessionmaker[Session], webapp_url: str | None = None) -> Router:
@@ -32,6 +37,9 @@ def build_router(session_factory: sessionmaker[Session], webapp_url: str | None 
     async def start(message: Message) -> None:
         if message.from_user is None:
             return
+
+        with session_factory() as session:
+            crud.create_user(session, message.from_user.id)
 
         await message.answer(
             "<b>Kufar Monitoring Bot</b>\n\n"
@@ -70,7 +78,7 @@ def build_router(session_factory: sessionmaker[Session], webapp_url: str | None 
         )
 
     @router.startup()
-    async def on_startup(bot) -> None:
+    async def on_startup(bot: Bot) -> None:
         await _set_bot_commands(bot)
 
     return router

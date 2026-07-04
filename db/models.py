@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -43,7 +43,10 @@ class Subscription(Base):
 
 class SentAd(Base):
     __tablename__ = "sent_ads"
-    __table_args__ = (UniqueConstraint("subscription_id", "ad_id", name="uq_sent_ads_subscription_ad"),)
+    __table_args__ = (
+        UniqueConstraint("subscription_id", "ad_id", name="uq_sent_ads_subscription_ad"),
+        Index("ix_sent_ads_ad_id", "ad_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subscription_id: Mapped[int] = mapped_column(ForeignKey("subscriptions.id"), nullable=False, index=True)

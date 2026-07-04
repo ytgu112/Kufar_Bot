@@ -35,14 +35,24 @@ def _clean_params(params: Mapping[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
+_client: httpx.AsyncClient | None = None
+
+
+async def get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(headers=HEADERS, timeout=15.0, follow_redirects=True)
+    return _client
+
+
 async def search_ads(params: Mapping[str, Any]) -> list[dict[str, Any]]:
     request_params = _clean_params(params)
 
     try:
-        async with httpx.AsyncClient(headers=HEADERS, timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(SEARCH_URL, params=request_params)
-            response.raise_for_status()
-            data = response.json()
+        client = await get_client()
+        response = await client.get(SEARCH_URL, params=request_params)
+        response.raise_for_status()
+        data = response.json()
     except httpx.HTTPStatusError as exc:
         logger.warning("Kufar API returned status %s: %s", exc.response.status_code, exc.response.text[:300])
         return []

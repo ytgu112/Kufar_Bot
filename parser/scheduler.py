@@ -203,6 +203,9 @@ async def poll_once(
             logger.debug("Subscription %s: fetched %s ads", subscription.id, len(ads))
             cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
 
+            sent_ids = crud.get_sent_ad_ids(session, subscription.id)
+            newly_sent_ids: list[int] = []
+
             for ad in reversed(ads):
                 ad_id = extract_ad_id(ad)
                 if ad_id is None:
@@ -214,7 +217,7 @@ async def poll_once(
                     logger.debug("Ad %s is older than 15 minutes, skipping", ad_id)
                     continue
 
-                if crud.is_ad_sent(session, subscription.id, ad_id):
+                if ad_id in sent_ids:
                     logger.debug("Ad %s already sent for subscription %s", ad_id, subscription.id)
                     skipped_already_sent_count += 1
                     continue
@@ -235,8 +238,12 @@ async def poll_once(
                     break
 
                 if is_sent:
-                    crud.mark_ad_sent(session, subscription.id, ad_id)
+                    newly_sent_ids.append(ad_id)
+                    sent_ids.add(ad_id)
                     sent_count += 1
+
+            if newly_sent_ids:
+                crud.mark_ads_sent(session, subscription.id, newly_sent_ids)
 
             logger.info(
                 "Subscription %s checked: fetched=%s, sent=%s, skipped_already_sent=%s",

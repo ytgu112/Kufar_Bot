@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -121,6 +121,19 @@ def mark_ad_sent(session: Session, subscription_id: int, ad_id: int) -> bool:
         session.rollback()
         logger.debug("Ad %s for subscription %s was already marked as sent", ad_id, subscription_id)
         return False
+
+
+def get_sent_ad_ids(session: Session, subscription_id: int) -> set[int]:
+    statement = select(SentAd.ad_id).where(SentAd.subscription_id == subscription_id)
+    return {row[0] for row in session.execute(statement)}
+
+
+def mark_ads_sent(session: Session, subscription_id: int, ad_ids: list[int]) -> None:
+    session.execute(
+        insert(SentAd).prefix_with("OR IGNORE"),
+        [{"subscription_id": subscription_id, "ad_id": ad_id} for ad_id in ad_ids],
+    )
+    session.commit()
 
 
 def deactivate_subscription(session: Session, telegram_id: int, subscription_id: int) -> bool:

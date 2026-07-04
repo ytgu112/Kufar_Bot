@@ -5,9 +5,10 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Coroutine, Iterable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,7 +34,9 @@ from parser.kufar_client import search_ads
 
 logger = logging.getLogger(__name__)
 
-AUTH_MAX_AGE_SECONDS = 24 * 60 * 60
+AUTH_MAX_AGE_SECONDS = 6 * 60 * 60
+
+_SUBSCRIPTION_ID_RE = re.compile(r"/api/filters/(\d+)(?:/(?:toggle|delete))?$")
 
 
 class MiniAppError(RuntimeError):
@@ -91,6 +94,23 @@ def _parse_optional_int(value: Any, field_name: str) -> int | None:
             raise ValidationError({field_name: "Число должно быть не меньше 0"})
         return parsed
     raise ValidationError({field_name: "Ожидается целое число"})
+
+
+def _parse_subscription_id(path: str) -> int:
+    match = _SUBSCRIPTION_ID_RE.match(path)
+    if not match:
+        raise ValidationError({"subscription": "Invalid subscription ID"})
+    return int(match.group(1))
+
+
+def _run_in_background(loop: asyncio.AbstractEventLoop, coro: Coroutine) -> None:
+    async def _with_logging():
+        try:
+            await coro
+        except Exception:
+            logger.exception("Background task failed")
+
+    asyncio.run_coroutine_threadsafe(_with_logging(), loop)
 
 
 def _normalize_rooms(raw_rooms: Any) -> list[str]:
@@ -323,6 +343,7 @@ class MiniAppServer:
         self.public_url = public_url
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     @property
     def url(self) -> str:
@@ -333,6 +354,11 @@ class MiniAppServer:
     def start(self) -> None:
         if self._server is not None:
             return
+
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = None
 
         server = self._build_server()
         self._server = server
@@ -498,10 +524,11 @@ class MiniAppServer:
                             normalized_params=normalized
                         )
 
-                    try:
-                        asyncio.run(_backfill_existing_ads(service.session_factory, subscription.id, query_params))
-                    except Exception:
-                        logger.exception("Could not backfill existing ads for subscription %s", subscription.id)
+                    if service._loop is not None:
+                        _run_in_background(
+                            service._loop,
+                            _backfill_existing_ads(service.session_factory, subscription.id, query_params),
+                        )
 
                     with service.session_factory() as session:
                         subscription = crud.get_subscription_for_user(session, auth["telegram_id"], subscription.id)
@@ -526,7 +553,7 @@ class MiniAppServer:
             def _handle_update_filter(self, path: str) -> None:
                 try:
                     auth = self._read_auth()
-                    subscription_id = int(path.split("/")[3])
+                    subscription_id = _parse_subscription_id(path)
                     payload = _read_json_body(self)
                     form = payload.get("form")
                     if not isinstance(form, dict):
@@ -550,10 +577,11 @@ class MiniAppServer:
                         self._send_error(HTTPStatus.NOT_FOUND, "Фильтр не найден")
                         return
 
-                    try:
-                        asyncio.run(_backfill_existing_ads(service.session_factory, subscription.id, query_params))
-                    except Exception:
-                        logger.exception("Could not backfill existing ads for subscription %s", subscription.id)
+                    if service._loop is not None:
+                        _run_in_background(
+                            service._loop,
+                            _backfill_existing_ads(service.session_factory, subscription.id, query_params),
+                        )
 
                     with service.session_factory() as session:
                         subscription = crud.get_subscription_for_user(session, auth["telegram_id"], subscription_id)
@@ -581,7 +609,7 @@ class MiniAppServer:
             def _handle_toggle_filter(self, path: str) -> None:
                 try:
                     auth = self._read_auth()
-                    subscription_id = int(path.split("/")[3])
+                    subscription_id = _parse_subscription_id(path)
 
                     with service.session_factory() as session:
                         subscription = crud.toggle_subscription(session, auth["telegram_id"], subscription_id)
@@ -607,7 +635,7 @@ class MiniAppServer:
             def _handle_delete_filter(self, path: str) -> None:
                 try:
                     auth = self._read_auth()
-                    subscription_id = int(path.split("/")[3])
+                    subscription_id = _parse_subscription_id(path)
 
                     with service.session_factory() as session:
                         deleted = crud.delete_subscription(session, auth["telegram_id"], subscription_id)
