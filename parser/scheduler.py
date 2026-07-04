@@ -37,16 +37,31 @@ def _money_from_cents(raw_value: Any) -> str | None:
 
 def _format_price(ad: dict[str, Any]) -> str:
     currency = str(ad.get("currency") or "USD").upper()
+    # Normalize old currency codes
+    if currency == "BYR":
+        currency = "BYN"
+    
+    # Try to get price from direct fields first
     price_key = "price_usd" if currency == "USD" else "price_byn" if currency == "BYN" else None
-
     price = _money_from_cents(ad.get(price_key)) if price_key else None
+    
+    # If not found, try calculator
     if price is None:
         calculator = ad.get("calculator")
         if isinstance(calculator, list):
+            # First try exact currency match
             for item in calculator:
                 if isinstance(item, dict) and str(item.get("currency", "")).upper() == currency:
                     price = _money_from_cents(item.get("price"))
                     break
+            
+            # If still not found, fallback to USD
+            if price is None:
+                for item in calculator:
+                    if isinstance(item, dict) and str(item.get("currency", "")).upper() == "USD":
+                        price = _money_from_cents(item.get("price"))
+                        currency = "USD"
+                        break
 
     return f"{price} {currency}" if price else "Цена не указана"
 
