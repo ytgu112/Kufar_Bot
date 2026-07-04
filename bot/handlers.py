@@ -490,7 +490,13 @@ def build_router(session_factory: sessionmaker[Session], webapp_url: str | None 
         existing_ad_ids = await _get_existing_ad_ids(query_params)
 
         with session_factory() as session:
-            subscription = crud.add_subscription(session, callback.from_user.id, title, query_params)
+            subscription = crud.add_subscription(
+                session, 
+                callback.from_user.id, 
+                title, 
+                query_params,
+                normalized_params=data
+            )
             for ad_id in existing_ad_ids:
                 crud.mark_ad_sent(session, subscription.id, ad_id)
 

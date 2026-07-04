@@ -223,8 +223,18 @@ def _serialize_subscription(subscription: Any) -> dict[str, Any]:
     if not isinstance(query_params, dict):
         query_params = {}
 
-    summary = describe_filter(query_params)
-    rooms = query_params.get("rooms")
+    # Try to use normalized_params if available, otherwise use query_params
+    normalized_data = query_params
+    if subscription.normalized_params:
+        try:
+            normalized_data = json.loads(subscription.normalized_params)
+            if not isinstance(normalized_data, dict):
+                normalized_data = query_params
+        except json.JSONDecodeError:
+            normalized_data = query_params
+
+    summary = describe_filter(normalized_data)
+    rooms = normalized_data.get("rooms")
     if isinstance(rooms, str):
         rooms = [rooms]
 
@@ -233,16 +243,16 @@ def _serialize_subscription(subscription: Any) -> dict[str, Any]:
         "title": subscription.title,
         "query_params": query_params,
         "summary": summary,
-        "category": query_params.get("category"),
-        "category_label": CATEGORIES.get(query_params.get("category"), {}).get("label", query_params.get("category")),
-        "deal_type": query_params.get("deal_type"),
-        "deal_type_label": DEAL_TYPES.get(query_params.get("deal_type"), query_params.get("deal_type")),
-        "city": query_params.get("city"),
-        "city_label": CITIES.get(query_params.get("city"), {}).get("label", query_params.get("city")),
+        "category": normalized_data.get("category"),
+        "category_label": CATEGORIES.get(normalized_data.get("category"), {}).get("label", normalized_data.get("category")),
+        "deal_type": normalized_data.get("deal_type"),
+        "deal_type_label": DEAL_TYPES.get(normalized_data.get("deal_type"), normalized_data.get("deal_type")),
+        "city": normalized_data.get("city"),
+        "city_label": CITIES.get(normalized_data.get("city"), {}).get("label", normalized_data.get("city")),
         "rooms": rooms or [],
         "rooms_label": describe_rooms(rooms),
-        "price_from": query_params.get("price_from"),
-        "price_to": query_params.get("price_to"),
+        "price_from": normalized_data.get("price_from"),
+        "price_to": normalized_data.get("price_to"),
         "is_active": subscription.is_active,
         "created_at": subscription.created_at.isoformat() if getattr(subscription, "created_at", None) else None,
     }
@@ -479,7 +489,13 @@ class MiniAppServer:
                     query_params = build_query_params(normalized)
 
                     with service.session_factory() as session:
-                        subscription = crud.add_subscription(session, auth["telegram_id"], title, query_params)
+                        subscription = crud.add_subscription(
+                            session, 
+                            auth["telegram_id"], 
+                            title, 
+                            query_params,
+                            normalized_params=normalized
+                        )
 
                     try:
                         asyncio.run(_backfill_existing_ads(service.session_factory, subscription.id, query_params))
@@ -520,7 +536,14 @@ class MiniAppServer:
                     query_params = build_query_params(normalized)
 
                     with service.session_factory() as session:
-                        subscription = crud.update_subscription(session, auth["telegram_id"], subscription_id, title, query_params)
+                        subscription = crud.update_subscription(
+                            session, 
+                            auth["telegram_id"], 
+                            subscription_id, 
+                            title, 
+                            query_params,
+                            normalized_params=normalized
+                        )
 
                     if subscription is None:
                         self._send_error(HTTPStatus.NOT_FOUND, "Фильтр не найден")

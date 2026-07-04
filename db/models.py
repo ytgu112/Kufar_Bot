@@ -30,6 +30,7 @@ class Subscription(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     query_params: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_params: Mapped[str] = mapped_column(Text, nullable=True, default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

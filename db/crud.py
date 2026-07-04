@@ -42,12 +42,14 @@ def add_subscription(
     telegram_id: int,
     title: str,
     query_params: dict[str, Any],
+    normalized_params: dict[str, Any] | None = None,
 ) -> Subscription:
     user = create_user(session, telegram_id)
     subscription = Subscription(
         user_id=user.id,
         title=title,
         query_params=json.dumps(query_params, ensure_ascii=False),
+        normalized_params=json.dumps(normalized_params, ensure_ascii=False) if normalized_params else None,
         is_active=True,
     )
     session.add(subscription)
@@ -157,6 +159,7 @@ def update_subscription(
     subscription_id: int,
     title: str,
     query_params: dict[str, Any],
+    normalized_params: dict[str, Any] | None = None,
 ) -> Subscription | None:
     subscription = get_subscription_for_user(session, telegram_id, subscription_id)
     if subscription is None:
@@ -164,6 +167,7 @@ def update_subscription(
 
     subscription.title = title
     subscription.query_params = json.dumps(query_params, ensure_ascii=False)
+    subscription.normalized_params = json.dumps(normalized_params, ensure_ascii=False) if normalized_params else None
     session.commit()
     session.refresh(subscription)
     return subscription
