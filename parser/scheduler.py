@@ -37,12 +37,17 @@ def _money_from_cents(raw_value: Any) -> str | None:
 
 def _format_price(ad: dict[str, Any]) -> str:
     # Try direct price fields first (in order of preference)
-    for price_field in ("price_usd", "price_byn", "price"):
+    price_currency_map = {
+        "price_usd": "USD",
+        "price_byn": "BYN",
+        "price": ad.get("currency", "USD"),
+    }
+    
+    for price_field, currency in price_currency_map.items():
         raw_price = ad.get(price_field)
         if raw_price not in (None, "", 0):
             price = _money_from_cents(raw_price)
             if price:
-                currency = str(ad.get("currency") or "USD").upper()
                 return f"{price} {currency}"
 
     # Fallback to calculator array
