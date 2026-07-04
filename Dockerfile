@@ -20,7 +20,12 @@ COPY . .
 # Create data and logs directories for volumes
 RUN mkdir -p data logs && chown -R app:app /app
 
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
+
 USER app
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Run the bot
 CMD ["python", "main.py"]
