@@ -401,13 +401,16 @@ function openEditForm(item) {
   const priceFrom = item.price_from != null ? String(item.price_from) : "";
   const priceTo = item.price_to != null ? String(item.price_to) : "";
 
+  // Convert city key to label for form state (validation expects label)
+  const cityLabel = item.city ? getCityLabel(item.city) : "";
+
   applyFormPayload(
     {
       category,
       deal_type: dealTypes.some((option) => option.key === item.deal_type)
         ? item.deal_type
         : dealTypes[0]?.key || "",
-      city: item.city || "",
+      city: cityLabel,
       rooms: normalizedRooms,
       price_from: priceFrom,
       price_to: priceTo,
