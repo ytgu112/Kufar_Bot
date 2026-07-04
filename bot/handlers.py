@@ -36,7 +36,7 @@ def build_router(session_factory: sessionmaker[Session], webapp_url: str | None 
         await message.answer(
             "<b>Kufar Monitoring Bot</b>\n\n"
             "Бот мониторит объявления по вашим фильтрам и отправляет их вам.\n\n"
-            "Все взаимодействия происходят в приложении. Отркыть его можно кнопкой ниже, либо кнопкой слева от поля ввода сообщения.",
+            "Все взаимодействия происходят в приложении. Открыть его можно кнопкой ниже, либо кнопкой слева от поля ввода сообщения.",
             reply_markup=_miniapp_keyboard(webapp_url) if webapp_url else None,
             parse_mode="HTML",
         )
