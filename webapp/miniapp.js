@@ -351,16 +351,20 @@ function setFormField(name, value) {
 }
 
 function applyFormPayload(form, mode, editingId = null) {
+  // Reset form state completely before applying new values
   state.formMode = mode;
   state.editingId = editingId;
-  state.form = {
-    category: form.category || getCategoryOptions()[0]?.key || "",
-    deal_type: form.deal_type || "",
-    city: form.city || "",
-    rooms: Array.isArray(form.rooms) ? [...form.rooms] : [],
-    price_from: form.price_from || "",
-    price_to: form.price_to || "",
-  };
+  state.form = createEmptyForm();
+  
+  // Apply new values
+  state.form.category = form.category || getCategoryOptions()[0]?.key || "";
+  state.form.deal_type = form.deal_type || "";
+  state.form.city = form.city || "";
+  state.form.rooms = Array.isArray(form.rooms) ? [...form.rooms] : [];
+  state.form.price_from = form.price_from || "";
+  state.form.price_to = form.price_to || "";
+  
+  // Auto-select first deal type if not provided
   if (!state.form.deal_type) {
     const categoryOptions = getDealTypeOptions(state.form.category);
     state.form.deal_type = categoryOptions[0]?.key || "";
@@ -372,6 +376,10 @@ function applyFormPayload(form, mode, editingId = null) {
 }
 
 function openCreateForm() {
+  if (!state.meta) {
+    showBanner("Загрузка данных... Попробуйте через мгновение.", "info");
+    return;
+  }
   const category = getCategoryOptions()[0]?.key || "";
   const dealType = getDealTypeOptions(category)[0]?.key || "";
   applyFormPayload(
