@@ -219,7 +219,7 @@ function syncViewport() {
 
 function showForm() {
   state.showForm = true;
-  refs.formSection.hidden = false;
+  refs.formSection.classList.add("is-visible");
   refs.pageSubtitle.textContent = state.formMode === "edit" ? "Редактирование фильтра" : "Создание нового фильтра";
   if (state.meta) {
     renderMeta();
@@ -231,7 +231,7 @@ function showForm() {
 
 function hideForm() {
   state.showForm = false;
-  refs.formSection.hidden = true;
+  refs.formSection.classList.remove("is-visible");
   refs.pageSubtitle.textContent = "Управление фильтрами поиска";
   renderHome();
   syncControls();
@@ -960,6 +960,7 @@ function init() {
   window.addEventListener("resize", syncViewport);
   window.addEventListener("orientationchange", syncViewport);
   state.form = createEmptyForm();
+  renderHome();
   hideForm();
   
   // Wait for Telegram to be ready before loading data

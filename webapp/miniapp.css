@@ -427,8 +427,12 @@ button {
 }
 
 .form-section {
-  animation: fadeUp 180ms ease;
+  display: none;
   margin-bottom: 4px;
+}
+.form-section.is-visible {
+  display: block;
+  animation: fadeUp 180ms ease;
 }
 
 .status-banner {
