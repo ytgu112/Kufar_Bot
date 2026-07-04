@@ -867,6 +867,15 @@ async function deleteFilter(id) {
   }
 }
 
+function resetFormState() {
+  state.formMode = "create";
+  state.editingId = null;
+  state.form = createEmptyForm();
+  state.formErrors = {};
+  state.formError = "";
+  setDirty(false);
+}
+
 function handleBack() {
   if (state.screen !== "form") {
     return;
@@ -881,15 +890,15 @@ function handleBack() {
     if (confirmed === null && tg?.showConfirm) {
       tg.showConfirm("Есть несохранённые изменения. Закрыть форму?", (result) => {
         if (result) {
+          resetFormState();
           setScreen("home");
-          setDirty(false);
         }
       });
       return;
     }
   }
+  resetFormState();
   setScreen("home");
-  setDirty(false);
 }
 
 function onFormInput(event) {
