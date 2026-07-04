@@ -546,10 +546,18 @@ async function apiFetch(path, options = {}) {
 }
 
 async function loadData() {
-  state.loading = true;
-  state.error = null;
-  renderHome();
-  syncControls();
+  const hasExistingItems = state.items.length > 0;
+
+  if (!hasExistingItems) {
+    state.loading = true;
+    state.error = null;
+    renderHome();
+    syncControls();
+  } else {
+    state.error = null;
+    renderHome();
+    syncControls();
+  }
 
   try {
     const [metaResponse, filtersResponse] = await Promise.all([
@@ -568,7 +576,6 @@ async function loadData() {
     renderHome();
     syncControls();
     
-    // Log error for debugging
     console.error("Failed to load data:", {
       message: error.message,
       status: error.status,
@@ -578,7 +585,7 @@ async function loadData() {
     
     let userMessage = error.message || "Не удалось загрузить данные";
     if (error.status === 401) {
-      userMessage = "Ошибка аутентификации. Переоткройте миниапп из Telegram.";
+      userMessage = "Ошибка аутентификации. Переоткройте миниапп в Telegram.";
     }
     showBanner(error.body?.error || userMessage, "error");
   }
@@ -685,10 +692,10 @@ function createChip(label, active, onClick, muted = false) {
 }
 
 function renderHome() {
-  refs.loadingState.hidden = !state.loading;
-  refs.errorState.hidden = !state.error;
-  refs.emptyState.hidden = state.loading || state.error || state.items.length > 0;
-  refs.filtersList.hidden = state.loading || state.error || state.items.length === 0;
+  refs.loadingState.hidden = state.showForm || !state.loading;
+  refs.errorState.hidden = state.showForm || !state.error;
+  refs.emptyState.hidden = state.showForm || state.loading || state.error || state.items.length > 0;
+  refs.filtersList.hidden = state.showForm || state.loading || state.error || state.items.length === 0;
   refs.errorText.textContent = state.error?.body?.error || state.error?.message || "Проверьте сеть или попробуйте еще раз.";
 
   if (state.loading) {
