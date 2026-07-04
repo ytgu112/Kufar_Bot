@@ -7,7 +7,7 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from sqlalchemy.orm import Session, sessionmaker
 
 from bot.filter_config import CATEGORIES, CITIES, DEAL_TYPES, ROOMS, build_query_params, describe_filter, get_allowed_deals
@@ -55,6 +55,14 @@ def _main_menu_inline_keyboard() -> InlineKeyboardMarkup:
             [("➕ Создать фильтр", "main_menu:create")],
             [("📋 Мои фильтры", "main_menu:filters")],
             [("❓ Помощь", "main_menu:help")],
+        ]
+    )
+
+
+def _miniapp_keyboard(webapp_url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Открыть miniapp", web_app=WebAppInfo(url=webapp_url))],
         ]
     )
 
@@ -164,7 +172,7 @@ async def _show_confirmation(message: Message, state: FSMContext) -> None:
     )
 
 
-def build_router(session_factory: sessionmaker[Session]) -> Router:
+def build_router(session_factory: sessionmaker[Session], webapp_url: str | None = None) -> Router:
     router = Router()
 
     @router.message(CommandStart())
@@ -177,7 +185,8 @@ def build_router(session_factory: sessionmaker[Session]) -> Router:
 
         await message.answer(
             "Привет. Я отслеживаю объявления Kufar по сохранённым фильтрам.\n\n"
-            "Используйте главное меню для навигации.",
+            "Используйте главное меню для навигации.\n"
+            "Miniapp доступен через команду /miniapp.",
             reply_markup=_main_menu_reply_keyboard()
         )
         await message.answer(
@@ -208,20 +217,35 @@ def build_router(session_factory: sessionmaker[Session]) -> Router:
     async def help_callback(callback: CallbackQuery) -> None:
         await callback.answer()
         if callback.message:
-            await callback.message.edit_text(
-                "Создайте фильтр через Главное меню. Бот будет периодически проверять Kufar "
-                "и присылать объявления, которые ещё не отправлялись по этому фильтру.\n\n"
-                "Для MVP доступны категории недвижимости: квартиры и дома.",
-                reply_markup=_keyboard([[("🔙 В главное меню", "main_menu:show")]])
-            )
+                await callback.message.edit_text(
+                    "Создайте фильтр через Главное меню. Бот будет периодически проверять Kufar "
+                    "и присылать объявления, которые ещё не отправлялись по этому фильтру.\n\n"
+                    "Для MVP доступны категории недвижимости: квартиры и дома.\n"
+                    "Miniapp доступен через команду /miniapp.",
+                    reply_markup=_keyboard([[("🔙 В главное меню", "main_menu:show")]])
+                )
 
     @router.message(Command("help"))
     async def help_command(message: Message) -> None:
         await message.answer(
             "Создайте фильтр через Главное меню. Бот будет периодически проверять Kufar "
             "и присылать объявления, которые ещё не отправлялись по этому фильтру.\n\n"
-            "Для MVP доступны категории недвижимости: квартиры и дома.",
+            "Для MVP доступны категории недвижимости: квартиры и дома.\n"
+            "Miniapp доступен через команду /miniapp.",
             reply_markup=_keyboard([[("🔙 В главное меню", "main_menu:show")]])
+        )
+
+    @router.message(Command("miniapp"))
+    async def miniapp_command(message: Message) -> None:
+        if not webapp_url:
+            await message.answer(
+                "WEBAPP_URL не настроен. Укажите публичный HTTPS URL miniapp в .env и перезапустите бота."
+            )
+            return
+
+        await message.answer(
+            "Откройте miniapp для управления фильтрами.",
+            reply_markup=_miniapp_keyboard(webapp_url),
         )
 
     async def _show_my_filters(user_id: int, message_to_edit: Message | None = None, send_answer: callable = None) -> None:

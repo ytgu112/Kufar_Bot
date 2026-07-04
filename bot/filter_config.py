@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 
@@ -42,6 +43,23 @@ ROOMS = {
     "5": "5 и более",
 }
 
+ROOM_OPTIONS: dict[str, str] = {
+    "any": "Любые",
+    "studio": "Студия",
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4+": "4+",
+}
+
+ROOM_QUERY_VALUES: dict[str, str] = {
+    "studio": "0",
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4+": "4,5",
+}
+
 
 def get_allowed_deals(category_key: str) -> tuple[str, ...]:
     category = CATEGORIES[category_key]
@@ -69,17 +87,54 @@ def build_query_params(data: dict[str, Any]) -> dict[str, str]:
         params["prc"] = f"r:{left},{right}"
 
     rooms = data.get("rooms")
-    if rooms:
-        params["rms"] = f"v.or:{rooms}"
+    room_values: list[str] = []
+    if isinstance(rooms, str):
+        rooms = [rooms]
+    if isinstance(rooms, Iterable):
+        for room in rooms:
+            if not isinstance(room, str) or room == "any":
+                continue
+            mapped = ROOM_QUERY_VALUES.get(room)
+            if mapped:
+                room_values.append(mapped)
+    if room_values:
+        params["rms"] = f"v.or:{','.join(room_values)}"
 
     return params
+
+
+def room_label(room_key: str) -> str:
+    return ROOM_OPTIONS.get(room_key, room_key)
+
+
+def describe_rooms(raw_rooms: Any) -> str:
+    if raw_rooms is None:
+        return "любые комнаты"
+
+    if isinstance(raw_rooms, str):
+        if raw_rooms == "any":
+            return "любые комнаты"
+        raw_rooms = [raw_rooms]
+
+    if isinstance(raw_rooms, Iterable):
+        labels = [room_label(room) for room in raw_rooms if isinstance(room, str) and room != "any"]
+        labels = [label for label in labels if label]
+        if not labels:
+            return "любые комнаты"
+        if len(labels) == 1:
+            return f"{labels[0]} комн."
+        if len(labels) == 2:
+            return f"{labels[0]} или {labels[1]} комн."
+        return f"{', '.join(labels[:-1])} или {labels[-1]} комн."
+
+    return "любые комнаты"
 
 
 def describe_filter(data: dict[str, Any]) -> str:
     category = CATEGORIES[data["category"]]["label"]
     deal_type = DEAL_TYPES[data["deal_type"]]
     city = CITIES[data["city"]]["label"]
-    rooms = ROOMS[data["rooms"]]
+    rooms = describe_rooms(data.get("rooms"))
 
     price_from = data.get("price_from")
     price_to = data.get("price_to")
@@ -92,5 +147,4 @@ def describe_filter(data: dict[str, Any]) -> str:
     else:
         price = f"{price_from}-{price_to} USD"
 
-    return f"{category}, {deal_type}, {city}, {rooms} комн., {price}"
-
+    return f"{category}, {deal_type}, {city}, {rooms}, {price}"

@@ -76,6 +76,28 @@ def get_user_active_subscriptions(session: Session, telegram_id: int) -> list[Su
     return list(session.scalars(statement).all())
 
 
+def get_user_subscriptions(session: Session, telegram_id: int) -> list[Subscription]:
+    statement = (
+        select(Subscription)
+        .join(Subscription.user)
+        .where(User.telegram_id == telegram_id)
+        .order_by(Subscription.created_at.desc())
+    )
+    return list(session.scalars(statement).all())
+
+
+def get_subscription_for_user(session: Session, telegram_id: int, subscription_id: int) -> Subscription | None:
+    statement = (
+        select(Subscription)
+        .join(Subscription.user)
+        .where(
+            Subscription.id == subscription_id,
+            User.telegram_id == telegram_id,
+        )
+    )
+    return session.scalar(statement)
+
+
 def is_ad_sent(session: Session, subscription_id: int, ad_id: int) -> bool:
     statement = select(SentAd.id).where(
         SentAd.subscription_id == subscription_id,
@@ -117,3 +139,41 @@ def deactivate_subscription(session: Session, telegram_id: int, subscription_id:
     session.commit()
     return True
 
+
+def toggle_subscription(session: Session, telegram_id: int, subscription_id: int) -> Subscription | None:
+    subscription = get_subscription_for_user(session, telegram_id, subscription_id)
+    if subscription is None:
+        return None
+
+    subscription.is_active = not subscription.is_active
+    session.commit()
+    session.refresh(subscription)
+    return subscription
+
+
+def update_subscription(
+    session: Session,
+    telegram_id: int,
+    subscription_id: int,
+    title: str,
+    query_params: dict[str, Any],
+) -> Subscription | None:
+    subscription = get_subscription_for_user(session, telegram_id, subscription_id)
+    if subscription is None:
+        return None
+
+    subscription.title = title
+    subscription.query_params = json.dumps(query_params, ensure_ascii=False)
+    session.commit()
+    session.refresh(subscription)
+    return subscription
+
+
+def delete_subscription(session: Session, telegram_id: int, subscription_id: int) -> bool:
+    subscription = get_subscription_for_user(session, telegram_id, subscription_id)
+    if subscription is None:
+        return False
+
+    session.delete(subscription)
+    session.commit()
+    return True

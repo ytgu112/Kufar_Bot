@@ -5,3 +5,5 @@ __pycache__/
 venv/
 data/
 logs/
+kufar_bot_plan.md
+miniapp-design-plan.md

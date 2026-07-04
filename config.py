@@ -15,6 +15,9 @@ class Settings:
     max_ads_per_poll: int
     request_pause_seconds: float
     fresh_ad_grace_seconds: int
+    webapp_host: str
+    webapp_port: int
+    webapp_url: str
 
 
 def _get_int(name: str, default: int) -> int:
@@ -48,4 +51,7 @@ def load_settings() -> Settings:
         max_ads_per_poll=_get_int("MAX_ADS_PER_POLL", 5),
         request_pause_seconds=_get_float("REQUEST_PAUSE_SECONDS", 1.5),
         fresh_ad_grace_seconds=_get_int("FRESH_AD_GRACE_SECONDS", 30),
+        webapp_host=os.getenv("WEBAPP_HOST", "0.0.0.0").strip() or "0.0.0.0",
+        webapp_port=_get_int("WEBAPP_PORT", 8080),
+        webapp_url=os.getenv("WEBAPP_URL", "").strip(),
     )

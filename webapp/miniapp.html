@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Kufar Filters</title>
+    <link rel="stylesheet" href="/miniapp.css" />
+    <script defer src="/miniapp.js"></script>
+  </head>
+  <body>
+    <div class="background background-a"></div>
+    <div class="background background-b"></div>
+    <div id="app" class="app-shell" data-screen="loading">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Telegram Mini App</p>
+          <h1>Фильтры Kufar</h1>
+          <p class="subtitle" id="pageSubtitle">Управление фильтрами поиска</p>
+        </div>
+        <button id="refreshButton" class="icon-button" type="button" aria-label="Обновить">
+          <span>↻</span>
+        </button>
+      </header>
+
+      <main class="content">
+        <section id="statusBanner" class="status-banner" hidden></section>
+
+        <section id="homeScreen" class="screen screen-home">
+          <div id="loadingState" class="state-panel" hidden>
+            <div class="skeleton-list" id="skeletonList"></div>
+          </div>
+
+          <div id="errorState" class="state-panel state-error" hidden>
+            <div class="state-icon">!</div>
+            <h2>Не удалось загрузить фильтры</h2>
+            <p id="errorText">Проверьте сеть или попробуйте еще раз.</p>
+            <button id="retryButton" class="secondary-button" type="button">Повторить</button>
+          </div>
+
+          <div id="emptyState" class="state-panel state-empty" hidden>
+            <div class="state-icon">⌁</div>
+            <h2>Пока нет фильтров</h2>
+            <p>Создайте первый фильтр, чтобы начать отслеживание объявлений.</p>
+            <button id="emptyCreateButton" class="primary-button" type="button">Создать фильтр</button>
+          </div>
+
+          <div id="filtersList" class="cards" aria-live="polite"></div>
+        </section>
+
+        <section id="formScreen" class="screen screen-form" hidden>
+          <form id="filterForm" novalidate>
+            <div class="form-card">
+              <div class="form-header">
+                <div>
+                  <p class="eyebrow">Шаг 1</p>
+                  <h2>Что ищем</h2>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Категория</label>
+                <div id="categoryChips" class="chip-group"></div>
+                <p class="field-error" data-error-for="category"></p>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Тип сделки</label>
+                <div id="dealTypeChips" class="chip-group"></div>
+                <p class="field-error" data-error-for="deal_type"></p>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <div class="form-header">
+                <div>
+                  <p class="eyebrow">Шаг 2</p>
+                  <h2>Где и сколько</h2>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="cityInput">Город</label>
+                <input
+                  id="cityInput"
+                  class="text-input"
+                  type="text"
+                  list="cityOptions"
+                  autocomplete="off"
+                  placeholder="Начните вводить город"
+                />
+                <datalist id="cityOptions"></datalist>
+                <p class="field-hint">Используйте название из списка, чтобы избежать опечаток.</p>
+                <p class="field-error" data-error-for="city"></p>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Комнаты</label>
+                <div id="roomChips" class="chip-group chip-wrap"></div>
+                <p class="field-error" data-error-for="rooms"></p>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <div class="form-header">
+                <div>
+                  <p class="eyebrow">Шаг 3</p>
+                  <h2>Бюджет</h2>
+                </div>
+              </div>
+
+              <div class="range-grid">
+                <div class="field-group">
+                  <label class="field-label" for="priceFromInput">От</label>
+                  <input
+                    id="priceFromInput"
+                    class="text-input"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="Например, 40000"
+                  />
+                  <p class="field-error" data-error-for="price_from"></p>
+                </div>
+
+                <div class="field-group">
+                  <label class="field-label" for="priceToInput">До</label>
+                  <input
+                    id="priceToInput"
+                    class="text-input"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="Например, 70000"
+                  />
+                  <p class="field-error" data-error-for="price_to"></p>
+                </div>
+              </div>
+
+              <p id="formSummary" class="summary-preview"></p>
+              <p id="formError" class="form-error" hidden></p>
+            </div>
+          </form>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <button id="fallbackAction" class="primary-button" type="button" hidden>Создать фильтр</button>
+      </footer>
+    </div>
+  </body>
+</html>

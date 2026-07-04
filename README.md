@@ -7,6 +7,7 @@ Telegram-бот отслеживает объявления Kufar.by по сох
 - `/start` — регистрация пользователя.
 - `/new_filter` — пошаговое создание фильтра.
 - `/my_filters` — список активных фильтров и удаление.
+- `/miniapp` — Telegram Mini App для управления фильтрами.
 - Периодический опрос Kufar через `APScheduler`.
 - SQLite-хранилище пользователей, фильтров и уже отправленных объявлений.
 
@@ -27,6 +28,9 @@ LOG_LEVEL=INFO
 MAX_ADS_PER_POLL=5
 REQUEST_PAUSE_SECONDS=1.5
 FRESH_AD_GRACE_SECONDS=30
+WEBAPP_HOST=0.0.0.0
+WEBAPP_PORT=8080
+WEBAPP_URL=https://your-domain.example/miniapp
 ```
 
 ## Запуск через Docker (рекомендуется)
