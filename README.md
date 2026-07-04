@@ -1,24 +1,40 @@
-# Kufar Telegram Bot MVP
+# Kufar Telegram Bot
 
-Telegram-бот отслеживает объявления Kufar.by по сохранённым фильтрам и отправляет новые карточки в чат без дублей.
+Telegram-бот для отслеживания объявлений на Kufar.by. Фильтры создаются и управляются через Telegram Mini App. Бот периодически проверяет новые объявления и отправляет их в чат без дублей.
 
-## Возможности MVP
+## Архитектура
 
-- `/start` — регистрация пользователя.
-- `/new_filter` — пошаговое создание фильтра.
-- `/my_filters` — список активных фильтров и удаление.
-- `/miniapp` — Telegram Mini App для управления фильтрами.
-- Периодический опрос Kufar через `APScheduler`.
-- SQLite-хранилище пользователей, фильтров и уже отправленных объявлений.
+- **Bot** — aiogram-сервер с командами для навигации и регистрации.
+- **Mini App** — веб-интерфейс внутри Telegram для управления фильтрами (создание, редактирование, удаление, пауза).
+- **Parser** — парсер Kufar.by с `APScheduler`, проверяет объявления по каждому активному фильтру.
+- **DB** — SQLite (SQLAlchemy + alembic).
 
-По умолчанию доступны категории недвижимости:
+## Команды бота
+
+| Команда | Действие |
+|---------|----------|
+| `/start` | Регистрация пользователя |
+| `/my_filters` | Список фильтров (если Mini App недоступен) |
+| `/miniapp` | Открыть Mini App |
+
+## Mini App
+
+Telegram Mini App — основной интерфейс управления фильтрами. Позволяет:
+
+- просматривать список фильтров с индикацией статуса;
+- создавать фильтр с выбором категории, типа сделки, города, количества комнат и цены;
+- редактировать существующий фильтр;
+- приостанавливать / возобновлять фильтр;
+- удалять фильтр.
+
+### Доступные категории
 
 - квартиры: аренда и покупка;
 - дома: покупка.
 
 ## Настройка
 
-Перед запуском создайте файл `.env` в корне проекта (можете использовать `.env.example` как шаблон) и укажите актуальные данные:
+Создайте файл `.env` в корне проекта (образец — `.env.example`):
 
 ```text
 BOT_TOKEN=telegram_bot_token_from_botfather
@@ -33,76 +49,24 @@ WEBAPP_PORT=8080
 WEBAPP_URL=https://your-domain.example/miniapp
 ```
 
-## Запуск через Docker (рекомендуется)
+## Запуск
 
-Самый быстрый и надежный способ запустить бота — использовать Docker. Убедитесь, что у вас установлены Docker и Docker Compose.
+### Docker
 
 ```bash
 docker-compose up -d --build
 ```
 
-База данных и логи будут автоматически сохраняться в папках `data/` и `logs/` на вашем хосте (используются volume), поэтому они не пропадут при перезапуске или обновлении контейнера.
-
-Для просмотра логов в реальном времени:
-```bash
-docker-compose logs -f bot
-```
-
-## Локальный запуск (без Docker)
-
-Создайте виртуальное окружение и установите зависимости:
+### Локально
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python main.py
 ```
 
 ### Проверка парсера
 
-Вы можете запустить скрипт, который делает тестовый запрос к Kufar и выводит результаты:
 ```powershell
 .\.venv\Scripts\python scripts\test_parser.py
-```
-
-### Запуск бота
-
-```powershell
-.\.venv\Scripts\python main.py
-```
-
-Если `BOT_TOKEN` пустой, приложение завершится с понятной ошибкой.
-
-> Бот отправляет только свежие объявления: текущая выдача при создании фильтра сразу помечается как просмотренная, а планировщик пропускает объявления старше окна `POLL_INTERVAL_SECONDS + FRESH_AD_GRACE_SECONDS`.
-
-## Деплой на VPS (systemd)
-
-Если вы не используете Docker и хотите настроить сервис вручную:
-
-1. Скопируйте проект в `/opt/kufar_bot`.
-2. Создайте venv и установите зависимости.
-3. Заполните `/opt/kufar_bot/.env`.
-4. Скопируйте `deploy/kufar-bot.service` в `/etc/systemd/system/kufar-bot.service`.
-5. Скопируйте `deploy/logrotate.kufar-bot` в `/etc/logrotate.d/kufar-bot`.
-6. Создайте каталог логов:
-
-```bash
-sudo mkdir -p /var/log/kufar-bot
-sudo chown -R kufar-bot:kufar-bot /var/log/kufar-bot
-```
-
-7. Запустите сервис:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now kufar-bot
-sudo systemctl status kufar-bot
-```
-
-Обновление кода при использовании systemd:
-
-```bash
-cd /opt/kufar_bot
-git pull
-./.venv/bin/python -m pip install -r requirements.txt
-sudo systemctl restart kufar-bot
 ```
