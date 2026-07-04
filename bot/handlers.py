@@ -13,15 +13,15 @@ logger = logging.getLogger(__name__)
 def _miniapp_keyboard(webapp_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📱 Open Mini App", web_app=WebAppInfo(url=webapp_url))],
+            [InlineKeyboardButton(text="📱 Открыть приложение", web_app=WebAppInfo(url=webapp_url))],
         ]
     )
 
 
 async def _set_bot_commands(bot) -> None:
     await bot.set_my_commands([
-        BotCommand(command="miniapp", description="Open Mini App"),
-        BotCommand(command="help", description="How to use this bot"),
+        BotCommand(command="miniapp", description="Открыть приложение"),
+        BotCommand(command="help", description="Как использовать бота"),
     ])
 
 
@@ -34,9 +34,9 @@ def build_router(session_factory: sessionmaker[Session], webapp_url: str | None 
             return
 
         await message.answer(
-            "🏠 <b>Kufar Monitoring Bot</b>\n\n"
-            "I track new listings on Kufar.by and send them to you automatically.\n\n"
-            "All interaction happens in the Mini App - tap the button below to get started.",
+            "<b>Kufar Monitoring Bot</b>\n\n"
+            "Бот мониторит объявления по вашим фильтрам и отправляет их вам.\n\n"
+            "Все взаимодействия происходят в приложении. Отркыть его можно кнопкой ниже, либо кнопкой слева от поля ввода сообщения.",
             reply_markup=_miniapp_keyboard(webapp_url) if webapp_url else None,
             parse_mode="HTML",
         )
