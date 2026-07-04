@@ -696,7 +696,6 @@ function renderFilterCard(item) {
         <span class="status-pill ${statusClass}">${statusLabel}</span>
       </div>
       <div class="filter-meta">
-        <span>${escapeHtml(details)}</span>
         <span>${escapeHtml(created)}</span>
       </div>
       <div class="filter-actions">
