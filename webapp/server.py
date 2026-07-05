@@ -319,12 +319,17 @@ async def _backfill_existing_ads(session_factory: sessionmaker[Session], subscri
     if not ads:
         return
 
+    ad_ids = []
+    for ad in ads:
+        ad_id = extract_ad_id(ad)
+        if ad_id is not None:
+            ad_ids.append(ad_id)
+
+    if not ad_ids:
+        return
+
     with session_factory() as session:
-        for ad in ads:
-            ad_id = extract_ad_id(ad)
-            if ad_id is None:
-                continue
-            crud.mark_ad_sent(session, subscription_id, ad_id)
+        crud.backfill_ads(session, subscription_id, ad_ids)
 
 
 class MiniAppServer:

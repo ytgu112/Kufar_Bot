@@ -14,6 +14,8 @@ class Settings:
     log_level: str
     max_ads_per_poll: int
     request_pause_seconds: float
+    request_pause_jitter: float
+    request_rate_limit_interval: float
     fresh_ad_grace_seconds: int
     webapp_host: str
     webapp_port: int
@@ -50,6 +52,8 @@ def load_settings() -> Settings:
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
         max_ads_per_poll=_get_int("MAX_ADS_PER_POLL", 5),
         request_pause_seconds=_get_float("REQUEST_PAUSE_SECONDS", 1.5),
+        request_pause_jitter=_get_float("REQUEST_PAUSE_JITTER", 0.5),
+        request_rate_limit_interval=_get_float("REQUEST_RATE_LIMIT_INTERVAL", 1.0),
         fresh_ad_grace_seconds=_get_int("FRESH_AD_GRACE_SECONDS", 30),
         webapp_host=os.getenv("WEBAPP_HOST", "0.0.0.0").strip() or "0.0.0.0",
         webapp_port=_get_int("WEBAPP_PORT", 8080),

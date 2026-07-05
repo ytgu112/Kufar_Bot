@@ -11,6 +11,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot.handlers import build_router
 from config import load_settings
 from db.session import create_session_factory
+from parser.kufar_client import set_rate_limit_interval
 from parser.scheduler import start_scheduler
 from webapp import MiniAppServer
 
@@ -39,6 +40,8 @@ async def main() -> None:
     )
     webapp_server.start()
 
+    set_rate_limit_interval(settings.request_rate_limit_interval)
+
     bot = Bot(
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -52,6 +55,7 @@ async def main() -> None:
         poll_interval_seconds=settings.poll_interval_seconds,
         max_ads_per_poll=settings.max_ads_per_poll,
         request_pause_seconds=settings.request_pause_seconds,
+        request_pause_jitter=settings.request_pause_jitter,
     )
 
     try:

@@ -136,6 +136,18 @@ def mark_ads_sent(session: Session, subscription_id: int, ad_ids: list[int]) -> 
     session.commit()
 
 
+def backfill_ads(session: Session, subscription_id: int, ad_ids: list[int]) -> None:
+    try:
+        session.execute(
+            insert(SentAd).prefix_with("OR IGNORE"),
+            [{"subscription_id": subscription_id, "ad_id": ad_id} for ad_id in ad_ids],
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+
 def deactivate_subscription(session: Session, telegram_id: int, subscription_id: int) -> bool:
     statement = (
         select(Subscription)

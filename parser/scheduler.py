@@ -4,6 +4,7 @@ import asyncio
 import html
 import json
 import logging
+import random
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -19,6 +20,8 @@ from parser.ad_utils import extract_ad_id, parse_kufar_list_time
 from parser.kufar_client import build_image_url, search_ads
 
 logger = logging.getLogger(__name__)
+
+_poll_in_progress = False
 
 
 def _money_from_cents(raw_value: Any) -> str | None:
@@ -179,82 +182,97 @@ async def poll_once(
     session_factory: sessionmaker[Session],
     max_ads_per_poll: int = 5,
     request_pause_seconds: float = 1.5,
+    request_pause_jitter: float = 0.5,
 ) -> None:
+    global _poll_in_progress
+    if _poll_in_progress:
+        logger.info("Scheduled poll skipped: previous run still in progress")
+        return
+    _poll_in_progress = True
+
     logger.info("Starting Kufar polling job")
 
-    with session_factory() as session:
-        subscriptions = crud.get_active_subscriptions(session)
+    try:
+        with session_factory() as session:
+            subscriptions = crud.get_active_subscriptions(session)
 
-        for index, subscription in enumerate(subscriptions):
-            try:
-                query_params = json.loads(subscription.query_params)
-            except json.JSONDecodeError:
-                logger.warning("Subscription %s has invalid query_params JSON", subscription.id)
-                continue
-
-            if not isinstance(query_params, dict):
-                logger.warning("Subscription %s query_params is not a dict", subscription.id)
-                continue
-
-            ads = await search_ads(query_params)
-            sent_count = 0
-            skipped_already_sent_count = 0
-
-            logger.debug("Subscription %s: fetched %s ads", subscription.id, len(ads))
-            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
-
-            sent_ids = crud.get_sent_ad_ids(session, subscription.id)
-            newly_sent_ids: list[int] = []
-
-            for ad in reversed(ads):
-                ad_id = extract_ad_id(ad)
-                if ad_id is None:
-                    logger.warning("Skipping ad with invalid ad_id: %s", ad.get("ad_id") or ad.get("list_id"))
-                    continue
-
-                list_time = parse_kufar_list_time(ad.get("list_time"))
-                if list_time and list_time < cutoff_time:
-                    logger.debug("Ad %s is older than 15 minutes, skipping", ad_id)
-                    continue
-
-                if ad_id in sent_ids:
-                    logger.debug("Ad %s already sent for subscription %s", ad_id, subscription.id)
-                    skipped_already_sent_count += 1
-                    continue
-
-                if sent_count >= max_ads_per_poll:
-                    logger.debug(
-                        "Subscription %s: reached max_ads_per_poll=%s, stopping",
-                        subscription.id,
-                        max_ads_per_poll,
-                    )
-                    break
-
+            for index, subscription in enumerate(subscriptions):
                 try:
-                    is_sent = await _send_ad(bot, subscription.user.telegram_id, ad)
-                except TelegramForbiddenError:
-                    logger.warning("User %s blocked the bot. Deactivating subscription %s", subscription.user.telegram_id, subscription.id)
-                    crud.deactivate_subscription(session, subscription.user.telegram_id, subscription.id)
-                    break
+                    try:
+                        query_params = json.loads(subscription.query_params)
+                    except json.JSONDecodeError:
+                        logger.warning("Subscription %s has invalid query_params JSON", subscription.id)
+                        continue
 
-                if is_sent:
-                    newly_sent_ids.append(ad_id)
-                    sent_ids.add(ad_id)
-                    sent_count += 1
+                    if not isinstance(query_params, dict):
+                        logger.warning("Subscription %s query_params is not a dict", subscription.id)
+                        continue
 
-            if newly_sent_ids:
-                crud.mark_ads_sent(session, subscription.id, newly_sent_ids)
+                    ads = await search_ads(query_params)
+                    sent_count = 0
+                    skipped_already_sent_count = 0
 
-            logger.info(
-                "Subscription %s checked: fetched=%s, sent=%s, skipped_already_sent=%s",
-                subscription.id,
-                len(ads),
-                sent_count,
-                skipped_already_sent_count,
-            )
+                    logger.debug("Subscription %s: fetched %s ads", subscription.id, len(ads))
+                    cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
 
-            if index < len(subscriptions) - 1 and request_pause_seconds > 0:
-                await asyncio.sleep(request_pause_seconds)
+                    sent_ids = crud.get_sent_ad_ids(session, subscription.id)
+                    newly_sent_ids: list[int] = []
+
+                    for ad in reversed(ads):
+                        ad_id = extract_ad_id(ad)
+                        if ad_id is None:
+                            logger.warning("Skipping ad with invalid ad_id: %s", ad.get("ad_id") or ad.get("list_id"))
+                            continue
+
+                        list_time = parse_kufar_list_time(ad.get("list_time"))
+                        if list_time and list_time < cutoff_time:
+                            logger.debug("Ad %s is older than 15 minutes, skipping", ad_id)
+                            continue
+
+                        if ad_id in sent_ids:
+                            logger.debug("Ad %s already sent for subscription %s", ad_id, subscription.id)
+                            skipped_already_sent_count += 1
+                            continue
+
+                        if sent_count >= max_ads_per_poll:
+                            logger.debug(
+                                "Subscription %s: reached max_ads_per_poll=%s, stopping",
+                                subscription.id,
+                                max_ads_per_poll,
+                            )
+                            break
+
+                        try:
+                            is_sent = await _send_ad(bot, subscription.user.telegram_id, ad)
+                        except TelegramForbiddenError:
+                            logger.warning("User %s blocked the bot. Deactivating subscription %s", subscription.user.telegram_id, subscription.id)
+                            crud.deactivate_subscription(session, subscription.user.telegram_id, subscription.id)
+                            break
+
+                        if is_sent:
+                            newly_sent_ids.append(ad_id)
+                            sent_ids.add(ad_id)
+                            sent_count += 1
+
+                    if newly_sent_ids:
+                        crud.mark_ads_sent(session, subscription.id, newly_sent_ids)
+
+                    logger.info(
+                        "Subscription %s checked: fetched=%s, sent=%s, skipped_already_sent=%s",
+                        subscription.id,
+                        len(ads),
+                        sent_count,
+                        skipped_already_sent_count,
+                    )
+                except Exception:
+                    logger.exception("Unhandled error processing subscription %s", subscription.id)
+
+                if index < len(subscriptions) - 1 and request_pause_seconds > 0:
+                    jitter_range = request_pause_seconds * request_pause_jitter
+                    pause = random.uniform(request_pause_seconds - jitter_range, request_pause_seconds + jitter_range)
+                    await asyncio.sleep(max(pause, 0.1))
+    finally:
+        _poll_in_progress = False
 
 
 def start_scheduler(
@@ -263,6 +281,7 @@ def start_scheduler(
     poll_interval_seconds: int,
     max_ads_per_poll: int,
     request_pause_seconds: float,
+    request_pause_jitter: float = 0.5,
 ) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="Europe/Minsk")
     scheduler.add_job(
@@ -274,10 +293,12 @@ def start_scheduler(
             "session_factory": session_factory,
             "max_ads_per_poll": max_ads_per_poll,
             "request_pause_seconds": request_pause_seconds,
+            "request_pause_jitter": request_pause_jitter,
         },
         id="poll_kufar",
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=30,
         next_run_time=datetime.now() + timedelta(seconds=10),
     )
     scheduler.start()
