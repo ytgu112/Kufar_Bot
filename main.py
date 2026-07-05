@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -10,22 +11,28 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.handlers import build_router
 from config import load_settings
-from db.session import create_session_factory
-from parser.kufar_client import set_rate_limit_interval
+from db.session import create_session_factory, dispose_engine
+from parser.kufar_client import close_client, set_rate_limit_interval
 from parser.scheduler import start_scheduler
 from webapp import MiniAppServer
 
 
-def setup_logging(level: str) -> None:
+def setup_logging(level: str, log_file: str | None = None) -> None:
+    handlers = [logging.StreamHandler()]
+    if log_file:
+        from logging.handlers import RotatingFileHandler
+        handlers.append(RotatingFileHandler(log_file, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"))
+
     logging.basicConfig(
         level=getattr(logging, level, logging.INFO),
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        handlers=handlers,
     )
 
 
 async def main() -> None:
     settings = load_settings()
-    setup_logging(settings.log_level)
+    setup_logging(settings.log_level, settings.log_file)
 
     if not settings.bot_token:
         raise RuntimeError("BOT_TOKEN is empty. Put your Telegram bot token into .env")
@@ -37,6 +44,7 @@ async def main() -> None:
         session_factory=session_factory,
         bot_token=settings.bot_token,
         public_url=settings.webapp_url,
+        admin_telegram_id=settings.admin_telegram_id,
     )
     webapp_server.start()
 
@@ -58,12 +66,35 @@ async def main() -> None:
         request_pause_jitter=settings.request_pause_jitter,
     )
 
+    stop_event = asyncio.Event()
+
+    def _signal_handler() -> None:
+        logging.getLogger(__name__).info("Received shutdown signal, stopping...")
+        stop_event.set()
+
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _signal_handler)
+        except (NotImplementedError, OSError):
+            pass
+
     try:
-        await dispatcher.start_polling(bot)
+        poll_task = asyncio.create_task(dispatcher.start_polling(bot))
+        await stop_event.wait()
+        poll_task.cancel()
+        try:
+            await poll_task
+        except asyncio.CancelledError:
+            pass
     finally:
-        scheduler.shutdown(wait=False)
+        logging.getLogger(__name__).info("Shutting down gracefully...")
+
+        scheduler.shutdown(wait=True)
         webapp_server.stop()
+        await close_client()
         await bot.session.close()
+        dispose_engine()
 
 
 if __name__ == "__main__":

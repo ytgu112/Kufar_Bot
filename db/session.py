@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.models import Base
 
+_engine: Engine | None = None
+
 
 def _sqlite_url(db_path: str) -> str:
     if db_path == ":memory:":
@@ -20,6 +22,7 @@ def _sqlite_url(db_path: str) -> str:
 
 
 def create_engine_for_db(db_path: str) -> Engine:
+    global _engine
     engine = create_engine(
         _sqlite_url(db_path),
         connect_args={"check_same_thread": False, "timeout": 10},
@@ -34,6 +37,7 @@ def create_engine_for_db(db_path: str) -> Engine:
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
+    _engine = engine
     return engine
 
 
@@ -41,4 +45,9 @@ def create_session_factory(db_path: str) -> sessionmaker[Session]:
     engine = create_engine_for_db(db_path)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
+
+
+def dispose_engine() -> None:
+    if _engine is not None:
+        _engine.dispose()
 

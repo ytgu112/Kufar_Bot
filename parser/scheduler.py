@@ -22,6 +22,7 @@ from parser.kufar_client import build_image_url, search_ads
 logger = logging.getLogger(__name__)
 
 _poll_in_progress = False
+last_successful_poll_time: datetime | None = None
 
 
 def _money_from_cents(raw_value: Any) -> str | None:
@@ -273,6 +274,10 @@ async def poll_once(
                     await asyncio.sleep(max(pause, 0.1))
     finally:
         _poll_in_progress = False
+
+    global last_successful_poll_time
+    last_successful_poll_time = datetime.now(timezone.utc)
+    logger.info("Kufar polling job completed successfully")
 
 
 def start_scheduler(

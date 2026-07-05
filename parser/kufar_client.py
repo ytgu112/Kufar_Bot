@@ -68,6 +68,13 @@ async def get_client() -> httpx.AsyncClient:
     return _client
 
 
+async def close_client() -> None:
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None
+
+
 def _rotate_headers() -> dict[str, str]:
     return {
         "User-Agent": random.choice(USER_AGENTS),

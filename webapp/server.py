@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlparse
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bot.filter_config import (
@@ -31,6 +32,7 @@ from bot.filter_config import (
 from db import crud
 from parser.ad_utils import extract_ad_id
 from parser.kufar_client import search_ads
+from parser.scheduler import last_successful_poll_time
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +316,10 @@ def _serialize_meta() -> dict[str, Any]:
     }
 
 
+_APP_VERSION = "0.2.0"
+_SERVER_START_TIME = time.time()
+
+
 async def _backfill_existing_ads(session_factory: sessionmaker[Session], subscription_id: int, query_params: dict[str, str]) -> None:
     ads = await search_ads(query_params)
     if not ads:
@@ -340,12 +346,14 @@ class MiniAppServer:
         session_factory: sessionmaker[Session],
         bot_token: str,
         public_url: str = "",
+        admin_telegram_id: int | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.session_factory = session_factory
         self.bot_token = bot_token
         self.public_url = public_url
+        self.admin_telegram_id = admin_telegram_id
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -472,6 +480,34 @@ class MiniAppServer:
                     except Exception as exc:
                         logger.exception("Error loading subscriptions")
                         self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Ошибка при загрузке фильтров")
+                    return
+                if parsed.path == "/health":
+                    db_ok = False
+                    try:
+                        with service.session_factory() as session:
+                            session.execute(select(1))
+                            db_ok = True
+                    except Exception:
+                        pass
+
+                    last_poll = last_successful_poll_time
+                    now = time.time()
+                    poll_status = "ok"
+                    if last_poll is None:
+                        poll_status = "never"
+                    elif hasattr(service, "_server") and service._server is None:
+                        poll_status = "stopped"
+
+                    self._send_json(
+                        HTTPStatus.OK,
+                        {
+                            "status": "ok" if db_ok else "degraded",
+                            "version": _APP_VERSION,
+                            "db": "ok" if db_ok else "error",
+                            "last_poll": last_poll.isoformat() if last_poll else None,
+                            "uptime": int(now - _SERVER_START_TIME),
+                        },
+                    )
                     return
 
                 self._send_error(HTTPStatus.NOT_FOUND, "Not found")

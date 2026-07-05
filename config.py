@@ -12,6 +12,7 @@ class Settings:
     db_path: str
     poll_interval_seconds: int
     log_level: str
+    log_file: str | None
     max_ads_per_poll: int
     request_pause_seconds: float
     request_pause_jitter: float
@@ -20,6 +21,7 @@ class Settings:
     webapp_host: str
     webapp_port: int
     webapp_url: str
+    admin_telegram_id: int | None
 
 
 def _get_int(name: str, default: int) -> int:
@@ -45,11 +47,17 @@ def _get_float(name: str, default: float) -> float:
 def load_settings() -> Settings:
     load_dotenv()
 
+    raw_admin_id = os.getenv("ADMIN_TELEGRAM_ID", "").strip()
+    admin_telegram_id = int(raw_admin_id) if raw_admin_id else None
+
+    raw_log_file = os.getenv("LOG_FILE", "").strip()
+
     return Settings(
         bot_token=os.getenv("BOT_TOKEN", "").strip(),
         db_path=os.getenv("DB_PATH", "data/kufar_bot.sqlite3").strip(),
         poll_interval_seconds=_get_int("POLL_INTERVAL_SECONDS", 300),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+        log_file=raw_log_file if raw_log_file else None,
         max_ads_per_poll=_get_int("MAX_ADS_PER_POLL", 5),
         request_pause_seconds=_get_float("REQUEST_PAUSE_SECONDS", 1.5),
         request_pause_jitter=_get_float("REQUEST_PAUSE_JITTER", 0.5),
@@ -58,4 +66,5 @@ def load_settings() -> Settings:
         webapp_host=os.getenv("WEBAPP_HOST", "0.0.0.0").strip() or "0.0.0.0",
         webapp_port=_get_int("WEBAPP_PORT", 8080),
         webapp_url=os.getenv("WEBAPP_URL", "").strip(),
+        admin_telegram_id=admin_telegram_id,
     )
